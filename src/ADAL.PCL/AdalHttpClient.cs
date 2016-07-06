@@ -40,6 +40,10 @@ namespace Microsoft.IdentityModel.Clients.ActiveDirectory
         private const string DeviceAuthHeaderValue = "1.0";
         private const string WwwAuthenticateHeader = "WWW-Authenticate";
         private const string PKeyAuthName = "PKeyAuth";
+        private const int DelayTimePeriod = 1000;
+
+        internal bool Resiliency = false;
+        internal bool RetryOnce = true;
 
         public AdalHttpClient(string uri, CallState callState)
         {
@@ -69,6 +73,7 @@ namespace Microsoft.IdentityModel.Clients.ActiveDirectory
 
                 if (PlatformPlugin.HttpClientFactory.AddAdditionalHeaders)
                 {
+
                     IDictionary<string, string> adalIdHeaders = AdalIdHelper.GetAdalIdParameters();
                     foreach (KeyValuePair<string, string> kvp in adalIdHeaders)
                     {
@@ -85,15 +90,35 @@ namespace Microsoft.IdentityModel.Clients.ActiveDirectory
             }
             catch (HttpRequestWrapperException ex)
             {
+                if (ex.InnerException is TaskCanceledException)
+                {
+                    Resiliency = true;
+                    PlatformPlugin.Logger.Information(this.CallState, ex.InnerException + "Network timeout..Client Resiliency feature enabled..");
+                }
                 if (!this.isDeviceAuthChallenge(ex.WebResponse, respondToDeviceAuthChallenge))
                 {
                     AdalServiceException serviceEx;
                     if (ex.WebResponse != null)
                     {
                         TokenResponse tokenResponse = TokenResponse.CreateFromErrorResponse(ex.WebResponse);
-                        string[] errorCodes = tokenResponse.ErrorCodes ?? new[] {ex.WebResponse.StatusCode.ToString()};
+                        string[] errorCodes = tokenResponse.ErrorCodes ?? new[] { ex.WebResponse.StatusCode.ToString() };
                         serviceEx = new AdalServiceException(tokenResponse.Error, tokenResponse.ErrorDescription,
                             errorCodes, ex);
+
+                        if ((ex.WebResponse.StatusCode.Equals(HttpStatusCode.InternalServerError)) ||
+                            (ex.WebResponse.StatusCode).Equals(HttpStatusCode.GatewayTimeout) ||
+                            (ex.WebResponse.StatusCode).Equals(HttpStatusCode.ServiceUnavailable))
+                        {
+                            if (RetryOnce)
+                            {
+                                await Task.Delay(DelayTimePeriod);
+                                RetryOnce = false;
+                                PlatformPlugin.Logger.Information(this.CallState, "WebResponse is not a success due to :-" + ex.InnerException + "Retrying one more time..");
+                                return await this.GetResponseAsync<T>(respondToDeviceAuthChallenge);
+                            }
+                            Resiliency = true;
+                            PlatformPlugin.Logger.Information(this.CallState, ex.InnerException + "Retry Failed.Client Resiliency feature enabled");
+                        }
                     }
                     else
                     {
@@ -118,10 +143,11 @@ namespace Microsoft.IdentityModel.Clients.ActiveDirectory
             return typedResponse;
         }
 
+
         private bool isDeviceAuthChallenge(IHttpWebResponse response, bool respondToDeviceAuthChallenge)
         {
             return PlatformPlugin.DeviceAuthHelper.CanHandleDeviceAuthChallenge &&
-                   respondToDeviceAuthChallenge && response != null && response.Headers != null &&
+                   respondToDeviceAuthChallenge && response != null &&
                    (response.Headers.ContainsKey(WwwAuthenticateHeader) &&
                     response.Headers[WwwAuthenticateHeader].StartsWith(PKeyAuthName, StringComparison.CurrentCulture));
         }
@@ -135,7 +161,7 @@ namespace Microsoft.IdentityModel.Clients.ActiveDirectory
             foreach (string pair in headerPairs)
             {
                 List<string> keyValue = EncodingHelper.SplitWithQuotes(pair, '=');
-                data.Add(keyValue[0].Trim(),keyValue[1].Trim().Replace("\"",""));
+                data.Add(keyValue[0].Trim(), keyValue[1].Trim().Replace("\"", ""));
             }
 
             return data;

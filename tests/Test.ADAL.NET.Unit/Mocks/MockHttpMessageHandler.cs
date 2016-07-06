@@ -21,6 +21,8 @@ namespace Test.ADAL.NET.Unit.Mocks
 
         public HttpMethod Method { get; set; }
 
+        public Exception ExceptionToThrow { get; set; }
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Assert.AreEqual(Method, request.Method);
@@ -54,8 +56,11 @@ namespace Test.ADAL.NET.Unit.Mocks
                     Assert.AreEqual(PostData[key], postDataInput[key]);
                 }
             }
-            
-            return new TaskFactory().StartNew(() => ResponseMessage, cancellationToken);
+            if (ExceptionToThrow != null)
+            {
+                throw ExceptionToThrow;
+            }
+                return new TaskFactory().StartNew(() => ResponseMessage, cancellationToken);
         }
     }
 }

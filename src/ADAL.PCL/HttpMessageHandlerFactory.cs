@@ -28,6 +28,8 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Microsoft.IdentityModel.Clients.ActiveDirectory
 {
@@ -40,10 +42,10 @@ namespace Microsoft.IdentityModel.Clients.ActiveDirectory
                 return MockHandlerQueue.Dequeue();
             }
 
-            return new HttpClientHandler { UseDefaultCredentials = useDefaultCredentials };
+            return new HttpClientHandler {UseDefaultCredentials = useDefaultCredentials};
         }
 
-        private readonly static Queue<HttpMessageHandler> MockHandlerQueue = new Queue<HttpMessageHandler>();
+        private static readonly Queue<HttpMessageHandler> MockHandlerQueue = new Queue<HttpMessageHandler>();
 
         public static void AddMockHandler(HttpMessageHandler mockHandler)
         {
@@ -53,6 +55,11 @@ namespace Microsoft.IdentityModel.Clients.ActiveDirectory
         public static void ClearMockHandlers()
         {
             MockHandlerQueue.Clear();
+        }
+
+        public static int CountMockHandlers()
+        {
+            return MockHandlerQueue.Count;
         }
     }
 }
