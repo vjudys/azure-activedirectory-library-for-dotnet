@@ -1012,7 +1012,8 @@ namespace Test.ADAL.NET.Unit
         public async Task ConfidentialClientWithX509Test()
         {
             var context = new AuthenticationContext(TestConstants.DefaultAuthorityCommonTenant, new TokenCache());
-            var certificate = new ClientAssertionCertificate(TestConstants.DefaultClientId, new X509Certificate2("valid_cert.pfx", TestConstants.DefaultPassword));
+            var certificate = new ClientAssertionCertificate(TestConstants.DefaultClientId,
+                new X509Certificate2("valid_cert.pfx", TestConstants.DefaultPassword));
 
             HttpMessageHandlerFactory.AddMockHandler(new MockHttpMessageHandler()
             {

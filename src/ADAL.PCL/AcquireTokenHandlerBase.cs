@@ -44,6 +44,7 @@ namespace Microsoft.IdentityModel.Clients.ActiveDirectory
         protected CacheQueryData CacheQueryData = new CacheQueryData();
 
         private AdalHttpClient client = null;
+        private bool _extendedLifeTimeEnabled = false;
 
         protected AcquireTokenHandlerBase(RequestData requestData)
         {
@@ -77,16 +78,8 @@ namespace Microsoft.IdentityModel.Clients.ActiveDirectory
             brokerParameters["correlation_id"] = requestData.ClientKey.ClientId;
             brokerParameters["client_version"] = AdalIdHelper.GetAdalVersion();
             this.ResultEx = null;
+            _extendedLifeTimeEnabled = requestData.ExtendedLifeTimeEnabled;
 
-            CacheQueryData = new CacheQueryData();
-            CacheQueryData.Authority = Authenticator.Authority;
-            CacheQueryData.Resource = this.Resource;
-            CacheQueryData.ClientId = this.ClientKey.ClientId;
-            CacheQueryData.SubjectType = this.TokenSubjectType;
-            CacheQueryData.UniqueId = this.UniqueId;
-            CacheQueryData.DisplayableId = this.DisplayableId;
-            CacheQueryData.ExtendedLifeTimeEnabled = requestData.ExtendedLifeTimeEnabled;
-            
         }
 
         internal CallState CallState { get; set; }
@@ -113,10 +106,19 @@ namespace Microsoft.IdentityModel.Clients.ActiveDirectory
         
         protected bool StoreToCache { get; set; }
 
+
         public async Task<AuthenticationResult> RunAsync()
         {
             bool notifiedBeforeAccessCache = false;
             AuthenticationResultEx extendedLifetimeResultEx = null;
+
+            CacheQueryData.Authority = Authenticator.Authority;
+            CacheQueryData.Resource = this.Resource;
+            CacheQueryData.ClientId = this.ClientKey.ClientId;
+            CacheQueryData.SubjectType = this.TokenSubjectType;
+            CacheQueryData.UniqueId = this.UniqueId;
+            CacheQueryData.DisplayableId = this.DisplayableId;
+            CacheQueryData.ExtendedLifeTimeEnabled = _extendedLifeTimeEnabled;
 
             try
             {
